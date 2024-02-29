@@ -67,7 +67,6 @@ def get_soup_by_month(url, month_number):
     return list_of_links
 
 
-# URL de la página web
 url = "https://www.aduana.gob.bo/aduana7/content/bolet%C3%ADn-de-recaudaciones-0"
 input_date = "2023-10-31"
 date_split = splitDates(input_date)
