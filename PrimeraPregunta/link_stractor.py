@@ -27,4 +27,5 @@ class LinkExtractor:
             for link in links_with_month:
                 link_url = link.get("href")
                 list_of_links.append(link_url)
+            print(list_of_links)
         return list_of_links
