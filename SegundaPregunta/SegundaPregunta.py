@@ -166,40 +166,25 @@ def split_and_order_names(pdf_text):
     lines = pdf_text.split("\n")
     result = {}
     for line in lines:
-        if re.match(r"^\d", line):  # Comprueba si la línea comienza con un número
-            number, rest = re.match(
-                r"^(\d+)(.*)", line
-            ).groups()  # Separa el número del resto del texto
-            result[number] = (
-                rest.strip()
-            )  # Almacena el número como clave y el resto del texto como valor (sin espacios en blanco al inicio o al final)
+        if re.match(r"^\d", line):
+            number, rest = re.match(r"^(\d+)(.*)", line).groups()
+            result[number] = rest.strip()
         else:
-            result[line] = (
-                line  # Almacena la línea tanto como clave como valor si no comienza con un número
-            )
+            result[line] = line
     return result
 
 
 def process_links_with_names(links, names):
     result = {}
     for link in links:
-        # nombre del archivo ej: 23.pdf
         filename = os.path.basename(link)
-        # le quira la extension y la guarda en una variable
         file_name_no_ext, extension = os.path.splitext(filename)
-        # Obtener el número del nombre de archivo si lo hay
         number = "".join(filter(str.isdigit, file_name_no_ext))
-        # # Obtener el nombre asociado al número si existe en el diccionario de nombres
         name = names.get(str(number), "")
-
-        # Si no hay número en el nombre, utilizar el nombre de archivo sin modificaciones
         if not name:
             name = file_name_no_ext
-        # Concatenar el nombre y la extensión del archivo para formar el nuevo nombre
         new_name = f"{name} {extension}"
-        # Usar el enlace como clave y el nuevo nombre como valor en el resultado
         result[link] = new_name.capitalize()
-    # return True
     return result
 
 
@@ -225,9 +210,11 @@ def distroy_pdf_files(download_folder):
             os.remove(file_path)
 
 
-########################################
-url = "https://www.bcb.gob.bo/?q=pub_boletin-mensual"
+###################################################
+# Acá puede configurar la fecha para que sea dinámica la busqueda.
 reference_date = "2023-09-30"
+#
+url = "https://www.bcb.gob.bo/?q=pub_boletin-mensual"
 date_split = split_dates(reference_date)
 month = number_to_month(date_split["month"])
 
@@ -237,12 +224,9 @@ list_of_months = find_mounth(list_cleaned, month)
 list_of_downloand_links = get_links_and_dates(url)
 filtered_links = filter_links_by_month(list_of_downloand_links, list_of_months)
 os.makedirs(download_folder, exist_ok=True)
-
 initial_files_name = download_files(filtered_links, download_folder)
 final_result = {}
-
 test_procesed = titles_of_initial_pdf(initial_files_name)
-
 filename = f"{download_folder}/links_and_names.txt"
 for link in filtered_links:
     all_links_uri = get_names_in_pdf_with_link(link["link"])
