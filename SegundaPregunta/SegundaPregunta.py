@@ -1,8 +1,3 @@
-from selenium import webdriver
-from selenium.webdriver.chrome.service import Service
-from selenium.webdriver.chrome.options import Options
-from selenium.webdriver.common.by import By
-import time
 from datetime import datetime
 import requests
 from bs4 import BeautifulSoup
@@ -77,27 +72,19 @@ def get_soup_by_year(url, texto_to_find):
     return target_url
 
 
-url = "https://www.bcb.gob.bo/?q=pub_boletin-mensual"
-reference_date = "2023-09-30"
-date_split = split_dates(reference_date)
-month = number_to_month(date_split["month"])
+# driver_path = "C:\\Users\\Ferchex\\Downloads\\chromedriver-win64\chromedriver.exe"
+# options = Options()
+# options.add_argument("--ignore-certificate-errors")
+# service = Service(driver_path)
+# driver = webdriver.Chrome(service=service, options=options)
+# # driver.maximize_window()
+# driver.get(url)
 
 
-driver_path = "C:\\Users\\Ferchex\\Downloads\\chromedriver-win64\chromedriver.exe"
-options = Options()
-options.add_argument("--ignore-certificate-errors")
-service = Service(driver_path)
-driver = webdriver.Chrome(service=service, options=options)
-# driver.maximize_window()
-driver.get(url)
-
-data = []
-date_element = driver.find_elements(
-    By.XPATH,
-    "//span",
-)
-for date_text in date_element:
-    data.append(date_text.text)
+# date_element = driver.find_elements(
+#     By.XPATH,
+#     "//span",
+# )
 
 
 def get_links_and_dates(url):
@@ -134,7 +121,6 @@ def download_files(links, download_folder):
         with open(filepath, "wb") as file:
             file.write(response.content)
         filepaths.append(filepath)
-
     return filepaths
 
 
@@ -158,7 +144,6 @@ def get_names_in_pdf_with_link(filtered_links):
 
 def remove_duplicates(urls):
     unique_urls = defaultdict(list)
-
     for url in urls:
         number = url.split("/")[-1].split(".")[0]
         file_type = url.split(".")[-1]
@@ -171,7 +156,6 @@ def remove_duplicates(urls):
 
 
 def read_pdf(file_path):
-
     text = ""
     with open(file_path, "rb") as file:
         reader = PyPDF2.PdfReader(file)
@@ -182,22 +166,42 @@ def read_pdf(file_path):
     return text
 
 
+def find_months_in_span(url):
+    data = []
+    response = requests.get(url)
+    soup = BeautifulSoup(response.text, "html.parser")
+    date_element = soup.find_all("span")
+    for date_text in date_element:
+        data.append(date_text.text)
+    return data
+
+
+########################################
+url = "https://www.bcb.gob.bo/?q=pub_boletin-mensual"
+reference_date = "2023-09-30"
+date_split = split_dates(reference_date)
+month = number_to_month(date_split["month"])
+
+data = find_months_in_span(url)
 list_cleaned = clean_list(data)
 list_of_months = find_mounth(list_cleaned, month)
 list_of_downloand_links = get_links_and_dates(url)
 filtered_links = filter_links_by_month(list_of_downloand_links, list_of_months)
 names = get_names_in_pdf_with_link(filtered_links)
-
 unique_names = remove_duplicates(names)
-download_folder = (
-    "C:\\Users\\Ferchex\\Desktop\\WebScrapingTest\\SegundaPregunta\\Descargas"
-)
-os.makedirs(download_folder, exist_ok=True)
+for name in unique_names:
+    print(name + "\n")
 
-initial_files_name = download_files(filtered_links, download_folder)
-# ya tengo de donde sacar los nombres para los links
-for file in initial_files_name:
-    print(file)
 
-# saco los nombres y los asigno a los links que son: "names"
-time.sleep(4)
+# download_folder = (
+#     "C:\\Users\\Ferchex\\Desktop\\WebScrapingTest\\SegundaPregunta\\Descargas"
+# )
+# os.makedirs(download_folder, exist_ok=True)
+
+# initial_files_name = download_files(filtered_links, download_folder)
+# # ya tengo de donde sacar los nombres para los links
+# for file in initial_files_name:
+#     print(file)
+
+# # saco los nombres y los asigno a los links que son: "names"
+# time.sleep(4)
