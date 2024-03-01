@@ -1,22 +1,13 @@
 import PyPDF2
-import requests
-from bs4 import BeautifulSoup
+
+import re
 
 url = "https://www.bcb.gob.bo/webdocs/publicacionesbcb/2024/01/18/%C3%8Dndice%20Boletin%20Mensual%20Octubre%202023.pdf"
 
-import subprocess
-import requests
-import tempfile
-import os
 
-import pdfplumber
-from bs4 import BeautifulSoup
-
-import PyPDF2
+pdf_path = "C:\\Users\\Ferchex\\Desktop\\WebScrapingTest\\SegundaPregunta\\Descargas\\%C3%8Dndice%20Boletin%20Mensual%20Noviembre%202022.pdf"
 
 
-# que lea cada linea y lo acomode segun los numero boletin tiene que repetirse
-# los demas que no tienen numero que sean subclave
 def read_pdf(file_path):
     text = ""
     with open(file_path, "rb") as file:
@@ -28,23 +19,31 @@ def read_pdf(file_path):
     return text
 
 
-pdf_path = "C:\\Users\\Ferchex\\Desktop\\WebScrapingTest\\SegundaPregunta\\Descargas\\%C3%8Dndice%20Boletin%20Mensual%20Noviembre%202022.pdf"
+def split_and_order_names(pdf_text):
+    lines = pdf_text.split("\n")
+    result = {}
+    for line in lines:
+        if re.match(r"^\d", line):  # Comprueba si la línea comienza con un número
+            number, rest = re.match(
+                r"^(\d+)(.*)", line
+            ).groups()  # Separa el número del resto del texto
+            result[number] = (
+                rest.strip()
+            )  # Almacena el número como clave y el resto del texto como valor (sin espacios en blanco al inicio o al final)
+        else:
+            result[line] = (
+                line  # Almacena la línea tanto como clave como valor si no comienza con un número
+            )
+    return result
+
 
 pdf_text = read_pdf(pdf_path)
-lines = pdf_text.strip().split("\n")
-data = {}
+resultado = split_and_order_names(pdf_text)
+print(resultado)
+# print(pdf_text)
 
-current_key = "BOLETÍN COMPLETO"
-data[current_key] = ""
-for line in lines:
-    if line.strip():  # Verificar si la línea no está vacía
-        elements = line.split(maxsplit=1)
-        if len(elements) == 2:  # Verificar si hay suficientes elementos
-            number, value = elements
-            data[number] = value.strip()
-        else:
-            data[current_key] += " " + line.strip()
+# lines = pdf_text.strip().split("\n")
 
 
-print(data)
+# print(data)
 # print(pdf_text)

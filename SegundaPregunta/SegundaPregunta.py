@@ -4,7 +4,10 @@ from bs4 import BeautifulSoup
 import os
 from collections import defaultdict
 import PyPDF2
+import re
 
+script_directory = os.path.dirname(os.path.abspath(__file__))
+download_folder = os.path.join(script_directory, "Descargas")
 months = [
     "ENERO",
     "FEBRERO",
@@ -72,21 +75,6 @@ def get_soup_by_year(url, texto_to_find):
     return target_url
 
 
-# driver_path = "C:\\Users\\Ferchex\\Downloads\\chromedriver-win64\chromedriver.exe"
-# options = Options()
-# options.add_argument("--ignore-certificate-errors")
-# service = Service(driver_path)
-# driver = webdriver.Chrome(service=service, options=options)
-# # driver.maximize_window()
-# driver.get(url)
-
-
-# date_element = driver.find_elements(
-#     By.XPATH,
-#     "//span",
-# )
-
-
 def get_links_and_dates(url):
     data = []
     response = requests.get(url)
@@ -124,21 +112,19 @@ def download_files(links, download_folder):
     return filepaths
 
 
-def get_names_in_pdf_with_link(filtered_links):
+def get_names_in_pdf_with_link(base_link):
     links_to_downloads = []
-    for link_info in filtered_links:
-        base_link = link_info["link"]
-        response = requests.get(base_link)
-        content_str = response.content.decode("utf-8", errors="replace")
-        lines = content_str.split("\r\n")
-        for line in lines:
-            if "/URI(" in line:
-                start_index = line.find("/URI(") + len("/URI(")
-                end_index = line.find(")", start_index)
-                link = line[start_index:end_index]
-                base_url = base_link.split("/")[0:8]
-                complete_url = "/".join(base_url)
-                links_to_downloads.append(f"{complete_url}/{link}")
+    response = requests.get(base_link)
+    content_str = response.content.decode("utf-8", errors="replace")
+    lines = content_str.split("\r\n")
+    for line in lines:
+        if "/URI(" in line:
+            start_index = line.find("/URI(") + len("/URI(")
+            end_index = line.find(")", start_index)
+            link = line[start_index:end_index]
+            base_url = base_link.split("/")[0:8]
+            complete_url = "/".join(base_url)
+            links_to_downloads.append(f"{complete_url}/{link}")
     return links_to_downloads
 
 
@@ -155,6 +141,16 @@ def remove_duplicates(urls):
     return unique_list
 
 
+def find_months_in_span(url):
+    data = []
+    response = requests.get(url)
+    soup = BeautifulSoup(response.text, "html.parser")
+    date_element = soup.find_all("span")
+    for date_text in date_element:
+        data.append(date_text.text)
+    return data
+
+
 def read_pdf(file_path):
     text = ""
     with open(file_path, "rb") as file:
@@ -166,14 +162,67 @@ def read_pdf(file_path):
     return text
 
 
-def find_months_in_span(url):
-    data = []
-    response = requests.get(url)
-    soup = BeautifulSoup(response.text, "html.parser")
-    date_element = soup.find_all("span")
-    for date_text in date_element:
-        data.append(date_text.text)
-    return data
+def split_and_order_names(pdf_text):
+    lines = pdf_text.split("\n")
+    result = {}
+    for line in lines:
+        if re.match(r"^\d", line):  # Comprueba si la línea comienza con un número
+            number, rest = re.match(
+                r"^(\d+)(.*)", line
+            ).groups()  # Separa el número del resto del texto
+            result[number] = (
+                rest.strip()
+            )  # Almacena el número como clave y el resto del texto como valor (sin espacios en blanco al inicio o al final)
+        else:
+            result[line] = (
+                line  # Almacena la línea tanto como clave como valor si no comienza con un número
+            )
+    return result
+
+
+def process_links_with_names(links, names):
+    result = {}
+    for link in links:
+        # nombre del archivo ej: 23.pdf
+        filename = os.path.basename(link)
+        # le quira la extension y la guarda en una variable
+        file_name_no_ext, extension = os.path.splitext(filename)
+        # Obtener el número del nombre de archivo si lo hay
+        number = "".join(filter(str.isdigit, file_name_no_ext))
+        # # Obtener el nombre asociado al número si existe en el diccionario de nombres
+        name = names.get(str(number), "")
+
+        # Si no hay número en el nombre, utilizar el nombre de archivo sin modificaciones
+        if not name:
+            name = file_name_no_ext
+        # Concatenar el nombre y la extensión del archivo para formar el nuevo nombre
+        new_name = f"{name} {extension}"
+        # Usar el enlace como clave y el nuevo nombre como valor en el resultado
+        result[link] = new_name.capitalize()
+    # return True
+    return result
+
+
+def titles_of_initial_pdf(initial_files_path):
+    result = {}
+    for path in initial_files_path:
+        pdf_text = read_pdf(path)
+        splited_names = split_and_order_names(pdf_text)
+        result.update(splited_names)
+    return result
+
+
+def save_dict_to_txt(dictionary, filename):
+    with open(filename, "w") as file:
+        for key, value in dictionary.items():
+            file.write(f"{value}\n{key}\n")
+
+
+def distroy_pdf_files(download_folder):
+    for filename in os.listdir(download_folder):
+        if filename.endswith(".pdf"):
+            file_path = os.path.join(download_folder, filename)
+            os.remove(file_path)
 
 
 ########################################
@@ -187,21 +236,18 @@ list_cleaned = clean_list(data)
 list_of_months = find_mounth(list_cleaned, month)
 list_of_downloand_links = get_links_and_dates(url)
 filtered_links = filter_links_by_month(list_of_downloand_links, list_of_months)
-names = get_names_in_pdf_with_link(filtered_links)
-unique_names = remove_duplicates(names)
-for name in unique_names:
-    print(name + "\n")
+os.makedirs(download_folder, exist_ok=True)
 
+initial_files_name = download_files(filtered_links, download_folder)
+final_result = {}
 
-# download_folder = (
-#     "C:\\Users\\Ferchex\\Desktop\\WebScrapingTest\\SegundaPregunta\\Descargas"
-# )
-# os.makedirs(download_folder, exist_ok=True)
+test_procesed = titles_of_initial_pdf(initial_files_name)
 
-# initial_files_name = download_files(filtered_links, download_folder)
-# # ya tengo de donde sacar los nombres para los links
-# for file in initial_files_name:
-#     print(file)
+filename = f"{download_folder}/links_and_names.txt"
+for link in filtered_links:
+    all_links_uri = get_names_in_pdf_with_link(link["link"])
+    full_link_unique = remove_duplicates(all_links_uri)
 
-# # saco los nombres y los asigno a los links que son: "names"
-# time.sleep(4)
+    final_result = process_links_with_names(full_link_unique, test_procesed)
+    save_dict_to_txt(final_result, filename)
+    distroy_pdf_files(download_folder)
